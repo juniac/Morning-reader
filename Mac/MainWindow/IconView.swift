@@ -7,9 +7,23 @@
 //
 
 import AppKit
+import CoreImage
 import Images
 
 final class IconView: NSView {
+
+	/// Draws the image desaturated. A layer filter, so favicons and tinted symbols alike lose their color.
+	var isGrayscale = false {
+		didSet {
+			guard isGrayscale != oldValue else {
+				return
+			}
+			imageView.wantsLayer = true
+			imageView.contentFilters = isGrayscale ? [Self.desaturateFilter].compactMap { $0 } : []
+		}
+	}
+
+	private static let desaturateFilter = CIFilter(name: "CIColorControls", parameters: [kCIInputSaturationKey: 0])
 
 	var iconImage: IconImage? {
 		didSet {
@@ -42,6 +56,15 @@ final class IconView: NSView {
 	}
 
 	private var isDiscernable = true
+
+  /// Off shows the image alone, with no box behind it. Set from the timeline icon shape setting.
+  var drawsBackground = true {
+    didSet {
+      if drawsBackground != oldValue {
+        needsDisplay = true
+      }
+    }
+  }
 
 	nonisolated override var isFlipped: Bool {
 		return true
@@ -90,7 +113,7 @@ final class IconView: NSView {
 	}
 
 	override func draw(_ dirtyRect: NSRect) {
-		guard !(iconImage?.isBackgroundSuppressed ?? false) else { return }
+		guard drawsBackground, !(iconImage?.isBackgroundSuppressed ?? false) else { return }
 		guard hasExposedVerticalBackground || !isDiscernable else { return }
 
 		let color = NSApplication.shared.effectiveAppearance.isDarkMode ? IconView.darkBackgroundColor : IconView.lightBackgroundColor

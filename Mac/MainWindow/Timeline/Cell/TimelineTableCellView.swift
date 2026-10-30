@@ -31,6 +31,7 @@ final class TimelineTableCellView: NSTableCellView {
 			if cellAppearance != oldValue {
 				updateTextFieldFonts()
 				iconView.layer?.cornerRadius = cellAppearance.iconCornerRadius
+        iconView.drawsBackground = cellAppearance.iconDrawsBackground
 				needsLayout = true
 			}
 		}
@@ -302,7 +303,16 @@ private extension TimelineTableCellView {
 		}
 	}
 
+	/// Read articles fade to 50% when the Appearance option is on.
+	func updateDimming() {
+		let alpha: CGFloat = AppDefaults.timelineDimsReadArticles && cellData.read ? 0.5 : 1
+		for view in [titleView, summaryView, textView, feedNameView, dateView] where view.alphaValue != alpha {
+			view.alphaValue = alpha
+		}
+	}
+
 	func updateSubviews() {
+		updateDimming()
 		updateTitleView()
 		updateSummaryView()
 		updateTextView()

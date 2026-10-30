@@ -34,27 +34,45 @@ struct TimelineCellAppearance: Equatable {
 
 	let drawsGrid = false
 
-	let iconSize = NSSize(width: 48, height: 48)
+	let iconSize: NSSize
 	let iconMarginLeft: CGFloat = 8.0
 	let iconMarginRight: CGFloat = 8.0
 	let iconAdjustmentTop: CGFloat = 4.0
-	let iconCornerRadius: CGFloat = 4.0
+	let iconCornerRadius: CGFloat
+  let iconDrawsBackground: Bool
 
 	let boxLeftMargin: CGFloat
 
 	init(showIcon: Bool, fontSize: FontSize) {
 
 		let actualFontSize = AppDefaults.actualFontSize(for: fontSize)
-		let smallItemFontSize = floor(actualFontSize * 0.90)
-		let largeItemFontSize = actualFontSize
+    let customTitleSize = AppDefaults.timelineTitleFontPointSize
+    let customSummarySize = AppDefaults.timelineSummaryFontPointSize
+    let titleSize = customTitleSize > 0 ? customTitleSize : actualFontSize
+    let summarySize = customSummarySize > 0 ? customSummarySize : actualFontSize
+    let smallItemFontSize = floor(titleSize * 0.90)
+    let familyName = AppDefaults.timelineFontFamily
 
-		self.feedNameFont = NSFont.systemFont(ofSize: smallItemFontSize, weight: NSFont.Weight.bold)
-		self.dateFont = NSFont.systemFont(ofSize: smallItemFontSize, weight: NSFont.Weight.bold)
-		self.titleFont = NSFont.systemFont(ofSize: largeItemFontSize, weight: NSFont.Weight.semibold)
-		self.textFont = NSFont.systemFont(ofSize: largeItemFontSize)
-		self.textOnlyFont = NSFont.systemFont(ofSize: largeItemFontSize)
+    self.feedNameFont = AppDefaults.font(familyName: familyName, size: smallItemFontSize, weight: .bold)
+    self.dateFont = AppDefaults.font(familyName: familyName, size: smallItemFontSize, weight: .bold)
+    // The picked face goes on the title; Bold Title then adds the bold trait on top of it.
+    let titleWeight: NSFont.Weight = AppDefaults.timelineTitleIsBold ? .semibold : .regular
+    var titleFont = AppDefaults.font(familyName: familyName, fontName: AppDefaults.timelineFontName, size: titleSize, weight: titleWeight)
+    if AppDefaults.timelineFontName != nil, AppDefaults.timelineTitleIsBold {
+      titleFont = NSFontManager.shared.convert(titleFont, toHaveTrait: .boldFontMask)
+    }
+    self.titleFont = titleFont
+    let summaryWeight: NSFont.Weight = AppDefaults.timelineSummaryIsBold ? .semibold : .regular
+    self.textFont = AppDefaults.font(familyName: familyName, size: summarySize, weight: summaryWeight)
+    self.textOnlyFont = AppDefaults.font(familyName: familyName, size: summarySize, weight: summaryWeight)
 
 		self.showIcon = showIcon
+
+    let iconDimension = AppDefaults.timelineIconDimension
+    let iconShape = AppDefaults.timelineIconShape
+    self.iconSize = NSSize(width: iconDimension, height: iconDimension)
+    self.iconCornerRadius = iconShape.cornerRadius(forDimension: iconDimension)
+    self.iconDrawsBackground = iconShape.drawsBackground
 
 		cellPadding = NSEdgeInsets(top: 8.0, left: 4.0, bottom: 10.0, right: 4.0)
 

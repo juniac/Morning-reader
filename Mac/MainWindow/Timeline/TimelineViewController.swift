@@ -34,18 +34,24 @@ final class TimelineViewController: NSViewController, UndoableCommandRunner, Unr
 
 	private var readFilterEnabledTable = [SidebarItemIdentifier: Bool]()
 
+	// ponytail: the filter is one global setting now; the per-feed table only survives for window-state compatibility.
 	var isReadFiltered: Bool? {
-		guard representedObjects?.count == 1, let timelineFeed = representedObjects?.first as? SidebarItem else {
+		guard representedObjects?.isEmpty == false else {
 			return nil
 		}
-		guard timelineFeed.defaultReadFilterType != .alwaysRead else {
-			return nil
-		}
-		if let sidebarItemID = timelineFeed.sidebarItemID, let readFiltered = readFilterEnabledTable[sidebarItemID] {
-			return readFiltered
-		}
-		return timelineFeed.defaultReadFilterType == .read
+		return AppDefaults.timelineFilter == .unread
 	}
+
+  private var timelineFilter = AppDefaults.timelineFilter
+  private var dimsReadArticles = AppDefaults.timelineDimsReadArticles
+  private var systemTimelineBackgroundColor = NSColor.clear
+
+  private func applyTimelineBackgroundColor() {
+    let color = AppDefaults.timelineBackgroundColor ?? systemTimelineBackgroundColor
+    if tableView.backgroundColor != color {
+      tableView.backgroundColor = color
+    }
+  }
 
 	var isCleanUpAvailable: Bool {
 		let isEligibleForCleanUp: Bool?
@@ -243,6 +249,8 @@ final class TimelineViewController: NSViewController, UndoableCommandRunner, Unr
 		cellAppearanceWithIcon = TimelineCellAppearance(showIcon: true, fontSize: fontSize)
 
 		updateRowHeights()
+		systemTimelineBackgroundColor = tableView.backgroundColor
+		applyTimelineBackgroundColor()
 		tableView.target = self
 		tableView.doubleAction = #selector(openArticleInBrowser(_:))
 		tableView.setDraggingSourceOperationMask(.copy, forLocal: false)
@@ -298,6 +306,10 @@ final class TimelineViewController: NSViewController, UndoableCommandRunner, Unr
 		return articles.canMarkAllAsRead()
 	}
 
+  var unreadArticleCount: Int {
+    articles.filter { !$0.status.read }.count
+  }
+
 	func canMarkSelectedArticlesAsRead() -> Bool {
 		return selectedArticles.canMarkAllAsRead()
 	}
@@ -317,17 +329,11 @@ final class TimelineViewController: NSViewController, UndoableCommandRunner, Unr
 	}
 
 	func toggleReadFilter() {
-		guard let filter = isReadFiltered,
-			  let sidebarItemID = (representedObjects?.first as? SidebarItem)?.sidebarItemID else {
+		guard let isReadFiltered else {
 			return
 		}
-		if filter {
-			noteSidebarItemShowsReadArticles(sidebarItemID)
-		} else {
-			noteSidebarItemHidesReadArticles(sidebarItemID)
-		}
-		delegate?.timelineInvalidatedRestorationState(self)
-		fetchAndReplacePreservingSelection()
+		// The UserDefaults observer refetches.
+		AppDefaults.timelineFilter = isReadFiltered ? .all : .unread
 	}
 
 	// MARK: State Restoration
@@ -776,7 +782,20 @@ final class TimelineViewController: NSViewController, UndoableCommandRunner, Unr
 	}
 
 	@MainActor func userDefaultsDidChange() {
+    applyTimelineBackgroundColor()
+    if dimsReadArticles != AppDefaults.timelineDimsReadArticles {
+      dimsReadArticles = AppDefaults.timelineDimsReadArticles
+      reloadVisibleCells()
+    }
+    if timelineFilter != AppDefaults.timelineFilter {
+      timelineFilter = AppDefaults.timelineFilter
+      fetchAndReplacePreservingSelection()
+    }
 		fontSize = AppDefaults.timelineFontSize
+    // The icon size and shape live in the appearance too, so rebuild it when any of its inputs changed.
+    if TimelineCellAppearance(showIcon: false, fontSize: fontSize) != cellAppearance {
+      fontSizeDidChange()
+    }
 	}
 
 	/// The one place the row height is set — it depends on the layout and the font size.
@@ -1324,14 +1343,16 @@ private extension TimelineViewController {
 		}
 
 		var fetchedArticles = Set<Article>()
-		for fetchers in fetchers {
-			if (fetchers as? SidebarItem)?.readFiltered(readFilterEnabledTable: readFilterEnabledTable) ?? true {
-				let articles = fetchers.fetchUnreadArticles()
-				fetchedArticles.formUnion(articles)
-			} else {
-				let articles = fetchers.fetchArticles()
-				fetchedArticles.formUnion(articles)
-			}
+    let filter = AppDefaults.timelineFilter
+		for fetcher in fetchers {
+      switch filter {
+      case .unread:
+        fetchedArticles.formUnion(fetcher.fetchUnreadArticles())
+      case .all:
+        fetchedArticles.formUnion(fetcher.fetchArticles())
+      case .starred:
+        fetchedArticles.formUnion(fetcher.fetchArticles().filter { $0.status.starred })
+      }
 		}
 		return fetchedArticles
 	}
@@ -1342,7 +1363,7 @@ private extension TimelineViewController {
 		precondition(Thread.isMainThread)
 		cancelPendingAsyncFetches()
 		let fetchers = representedObjects.compactMap { $0 as? ArticleFetcher }
-		let fetchOperation = FetchRequestOperation(id: fetchSerialNumber, readFilterEnabledTable: readFilterEnabledTable, fetchers: fetchers) { [weak self] (articles, operation) in
+		let fetchOperation = FetchRequestOperation(id: fetchSerialNumber, filter: AppDefaults.timelineFilter, fetchers: fetchers) { [weak self] (articles, operation) in
 			precondition(Thread.isMainThread)
 			guard !operation.isCanceled, let strongSelf = self, operation.id == strongSelf.fetchSerialNumber else {
 				return

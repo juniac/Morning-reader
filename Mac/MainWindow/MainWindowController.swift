@@ -49,7 +49,8 @@ final class MainWindowController: NSWindowController, NSUserInterfaceValidations
 	private static let defaultColumnLayoutTimelineHeightFraction: CGFloat = 0.4
 	private static let sidebarHoldingPriority: Float = 260
 	private static let timelineHoldingPriority: Float = 255
-	private static let toolbarIdentifier = "MainWindowToolbar"
+	// The suffix retires toolbar configurations saved before the sort and filter items existed.
+	private static let toolbarIdentifier = "MainWindowToolbar-2"
 	private var splitViewController: NSSplitViewController?
 	// Column layout only: the vertical split holding the timeline above the article view.
 	private var contentSplitViewController: NSSplitViewController?
@@ -335,6 +336,14 @@ final class MainWindowController: NSWindowController, NSUserInterfaceValidations
 			return validateToggleReadArticles(item)
 		}
 
+		if item.action == #selector(timelineFilterDidChange(_:)) {
+			// Validation is also where the control follows a filter changed elsewhere (menu, another window).
+			if let control = (item as? NSToolbarItem)?.view as? NSSegmentedControl {
+				control.selectedSegment = AppDefaults.timelineFilter.rawValue
+			}
+			return timelineContainerViewController?.isReadFiltered != nil
+		}
+
 		if item.action == #selector(sortArticlesByField(_:)) {
 			return validateSortArticlesByField(item)
 		}
@@ -421,6 +430,15 @@ final class MainWindowController: NSWindowController, NSUserInterfaceValidations
 		openArticleInBrowser(sender)
 	}
 
+	/// Opens the current article per the background preference, then moves on to the next article.
+	@IBAction func openInBrowserAndSelectNextArticle(_ sender: Any?) {
+		guard currentLink != nil else {
+			return
+		}
+		openArticleInBrowser(sender)
+		selectNextArticle(sender)
+	}
+
 	@objc func openInAppBrowser(_ sender: Any?) {
 		// There is no In-App Browser for mac - so we use safari
 		openArticleInBrowser(sender)
@@ -460,7 +478,12 @@ final class MainWindowController: NSWindowController, NSUserInterfaceValidations
 	}
 
 	@IBAction func markAllAsRead(_ sender: Any?) {
-		currentTimelineViewController?.markAllAsRead()
+    guard let timelineViewController = currentTimelineViewController else {
+      return
+    }
+    MarkAllAsReadConfirmation.run(on: window, articleCount: timelineViewController.unreadArticleCount) {
+      timelineViewController.markAllAsRead()
+    }
 	}
 
 	@IBAction func toggleRead(_ sender: Any?) {
@@ -521,9 +544,14 @@ final class MainWindowController: NSWindowController, NSUserInterfaceValidations
 	}
 
 	@IBAction func markAllAsReadAndGoToNextUnread(_ sender: Any?) {
-		currentTimelineViewController?.markAllAsRead {
-			self.nextUnread(sender)
-		}
+    guard let timelineViewController = currentTimelineViewController else {
+      return
+    }
+    MarkAllAsReadConfirmation.run(on: window, articleCount: timelineViewController.unreadArticleCount) {
+      timelineViewController.markAllAsRead {
+        self.nextUnread(sender)
+      }
+    }
 	}
 
 	@IBAction func markUnreadAndGoToNextUnread(_ sender: Any?) {
@@ -559,6 +587,14 @@ final class MainWindowController: NSWindowController, NSUserInterfaceValidations
 	@IBAction func navigateToDetail(_ sender: Any?) {
 		detailViewController?.focus()
 	}
+
+  @IBAction func selectNextArticle(_ sender: Any?) {
+    currentTimelineViewController?.selectNextDown(sender)
+  }
+
+  @IBAction func selectPreviousArticle(_ sender: Any?) {
+    currentTimelineViewController?.selectNextUp(sender)
+  }
 
 	@IBAction func goToPreviousSubscription(_ sender: Any?) {
 		sidebarViewController?.outlineView.selectPreviousRow(sender)
@@ -635,6 +671,13 @@ final class MainWindowController: NSWindowController, NSUserInterfaceValidations
 
 	@IBAction func toggleReadArticlesFilter(_ sender: Any?) {
 		timelineContainerViewController?.toggleReadFilter()
+	}
+
+	@objc func timelineFilterDidChange(_ sender: NSSegmentedControl) {
+		guard let filter = TimelineFilter(rawValue: sender.selectedSegment) else {
+			return
+		}
+		AppDefaults.timelineFilter = filter
 	}
 
 	@IBAction func sortArticlesByField(_ sender: NSMenuItem) {
@@ -883,25 +926,6 @@ extension MainWindowController: DetailViewControllerDelegate {
 
 extension MainWindowController: MainWindowStatusBarViewDelegate {
 
-	func statusBarViewGearMenu(_ statusBarView: MainWindowStatusBarView) -> NSMenu? {
-		guard let menu = sidebarViewController?.statusBarMenu() else {
-			return nil
-		}
-
-		var index = 0
-		if AccountManager.shared.canRefresh {
-			menu.insertItem(withTitle: NSLocalizedString("Refresh", comment: "Refresh"), action: #selector(AppDelegate.refreshAll(_:)), keyEquivalent: "", at: index)
-			index += 1
-		}
-
-		let isSidebarHidden = sidebarSplitViewItem?.isCollapsed ?? false
-		let sidebarTitle = isSidebarHidden ? NSLocalizedString("Show Sidebar", comment: "Command") : NSLocalizedString("Hide Sidebar", comment: "Command")
-		menu.insertItem(withTitle: sidebarTitle, action: #selector(NSSplitViewController.toggleSidebar(_:)), keyEquivalent: "", at: index)
-		menu.insertItem(NSMenuItem.separator(), at: index + 1)
-
-		return menu
-	}
-
 	func statusBarView(_ statusBarView: MainWindowStatusBarView, moveSidebarDividerTo position: CGFloat) {
 		guard let splitView = splitViewController?.splitView else {
 			return
@@ -923,6 +947,8 @@ extension NSToolbarItem.Identifier {
 	static let search = NSToolbarItem.Identifier("search")
 	static let markAllAsRead = NSToolbarItem.Identifier("markAllAsRead")
 	static let toggleReadArticlesFilter = NSToolbarItem.Identifier("toggleReadArticlesFilter")
+	static let timelineSort = NSToolbarItem.Identifier("timelineSort")
+	static let timelineFilter = NSToolbarItem.Identifier("timelineFilter")
 	static let nextUnread = NSToolbarItem.Identifier("nextUnread")
 	static let markRead = NSToolbarItem.Identifier("markRead")
 	static let markStar = NSToolbarItem.Identifier("markStar")
@@ -959,6 +985,26 @@ extension MainWindowController: NSToolbarDelegate {
 		case .toggleReadArticlesFilter:
 			let title = NSLocalizedString("Read Articles Filter", comment: "Read Articles Filter")
 			return buildToolbarButton(.toggleReadArticlesFilter, title, Assets.Images.filterInactive, "toggleReadArticlesFilter:")
+
+		case .timelineSort:
+			let toolbarItem = NSMenuToolbarItem(itemIdentifier: .timelineSort)
+			let description = NSLocalizedString("Sort", comment: "Toolbar item")
+			toolbarItem.image = NSImage(systemSymbolName: "arrow.up.arrow.down", accessibilityDescription: description)
+			toolbarItem.toolTip = description
+			toolbarItem.label = description
+			toolbarItem.menu = buildTimelineSortMenu()
+			return toolbarItem
+
+		case .timelineFilter:
+			let toolbarItem = RSToolbarItem(itemIdentifier: .timelineFilter)
+			toolbarItem.autovalidates = true
+			let description = NSLocalizedString("Filter", comment: "Toolbar item")
+			toolbarItem.toolTip = description
+			toolbarItem.label = description
+			let control = NSSegmentedControl(labels: TimelineFilter.allCases.map(\.title), trackingMode: .selectOne, target: nil, action: #selector(timelineFilterDidChange(_:)))
+			control.selectedSegment = AppDefaults.timelineFilter.rawValue
+			toolbarItem.view = control
+			return toolbarItem
 
 		case .timelineTrackingSeparator:
 			// Only the standard layout has a vertical divider between the timeline and the article view.
@@ -1044,6 +1090,8 @@ extension MainWindowController: NSToolbarDelegate {
 			.sidebarTrackingSeparator,
 			.markAllAsRead,
 			.toggleReadArticlesFilter,
+			.timelineSort,
+			.timelineFilter,
 			.timelineTrackingSeparator,
 			.flexibleSpace,
 			.nextUnread,
@@ -1066,7 +1114,8 @@ extension MainWindowController: NSToolbarDelegate {
 			.newSidebarItemMenu,
 			.sidebarTrackingSeparator,
 			.markAllAsRead,
-			.toggleReadArticlesFilter,
+			.timelineSort,
+			.timelineFilter,
 			.timelineTrackingSeparator,
 			.markRead,
 			.markStar,
@@ -1266,7 +1315,7 @@ private extension MainWindowController {
 		return (splitViewController, contentSplitViewController)
 	}
 
-	func makeEmptySplitViewController(isVertical: Bool, splitView: NSSplitView = NSSplitView()) -> NSSplitViewController {
+	func makeEmptySplitViewController(isVertical: Bool, splitView: NSSplitView = BorderedSplitView()) -> NSSplitViewController {
 		let splitViewController = NSSplitViewController()
 		splitViewController.splitView = splitView
 		splitViewController.splitView.isVertical = isVertical
@@ -1828,6 +1877,20 @@ private extension MainWindowController {
 		return toolbarItem
 	}
 
+	/// The sort fields and directions, the same actions as the View menu; the responder chain checks the current ones.
+	func buildTimelineSortMenu() -> NSMenu {
+		let menu = NSMenu()
+		for key in [ArticleSortKey.date, .feed, .title, .unread, .starred] {
+			let item = NSMenuItem(title: key.localizedName, action: #selector(sortArticlesByField(_:)), keyEquivalent: "")
+			item.identifier = NSUserInterfaceItemIdentifier(key.rawValue)
+			menu.addItem(item)
+		}
+		menu.addItem(NSMenuItem.separator())
+		menu.addItem(NSMenuItem(title: NSLocalizedString("Ascending", comment: "Sort"), action: #selector(sortArticlesAscending(_:)), keyEquivalent: ""))
+		menu.addItem(NSMenuItem(title: NSLocalizedString("Descending", comment: "Sort"), action: #selector(sortArticlesDescending(_:)), keyEquivalent: ""))
+		return menu
+	}
+
 	func buildNewSidebarItemMenu() -> NSMenu {
 		let menu = NSMenu()
 
@@ -1840,6 +1903,11 @@ private extension MainWindowController {
 		newFolderFeedItem.title = NSLocalizedString("New Folder…", comment: "Command")
 		newFolderFeedItem.action = #selector(AppDelegate.showAddFolderWindow(_:))
 		menu.addItem(newFolderFeedItem)
+
+    let importOPMLFeedsItem = NSMenuItem()
+    importOPMLFeedsItem.title = NSLocalizedString("Import Feeds…", comment: "Command")
+    importOPMLFeedsItem.action = #selector(AppDelegate.showImportFeedsWindow(_:))
+    menu.addItem(importOPMLFeedsItem)
 
 		return menu
 	}

@@ -19,7 +19,7 @@ import Articles
 final class TimelineContainerViewController: NSViewController {
 
 	@IBOutlet var viewOptionsPopUpButton: NSPopUpButton!
-	@IBOutlet var readFilteredButton: NSButton!
+	@IBOutlet var timelineFilterControl: NSSegmentedControl!
 	@IBOutlet var headerSeparator: NSBox?
 	@IBOutlet var containerViewTopToHeaderConstraint: NSLayoutConstraint?
 	@IBOutlet var containerView: TimelineContainerView!
@@ -176,6 +176,13 @@ final class TimelineContainerViewController: NSViewController {
 		updateReadFilterButton()
 	}
 
+  @objc func timelineFilterDidChange(_ sender: NSSegmentedControl) {
+    guard let filter = TimelineFilter(rawValue: sender.selectedSegment) else {
+      return
+    }
+    AppDefaults.timelineFilter = filter
+  }
+
 	// MARK: State Restoration
 
 	func restoreState(from state: TimelineWindowState?) {
@@ -267,7 +274,8 @@ private extension TimelineContainerViewController {
 	}
 
 	func updateHeaderVisibility() {
-		let isHeaderHidden = layout == .column
+		// The sort menu and filter moved to the window toolbar; the header stays in the xib but never shows.
+		let isHeaderHidden = true
 		viewOptionsPopUpButton.isHidden = isHeaderHidden
 		headerSeparator?.isHidden = isHeaderHidden
 		containerViewTopToHeaderConstraint?.isActive = !isHeaderHidden
@@ -276,28 +284,8 @@ private extension TimelineContainerViewController {
 	}
 
 	func updateReadFilterButton() {
-		guard layout == .standard else {
-			readFilteredButton.isHidden = true
-			return
-		}
-
-		guard currentTimelineViewController == regularTimelineViewController else {
-			readFilteredButton.isHidden = true
-			return
-		}
-
-		guard let isReadFiltered = regularTimelineViewController.isReadFiltered else {
-			readFilteredButton.isHidden = true
-			return
-		}
-
-		readFilteredButton.isHidden = false
-
-		if isReadFiltered {
-			readFilteredButton.image = Assets.Images.filterActive
-		} else {
-			readFilteredButton.image = Assets.Images.filterInactive
-		}
+    timelineFilterControl.isHidden = layout != .standard || currentTimelineViewController != regularTimelineViewController
+    timelineFilterControl.selectedSegment = AppDefaults.timelineFilter.rawValue
 	}
 
 }
