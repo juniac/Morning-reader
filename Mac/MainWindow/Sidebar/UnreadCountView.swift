@@ -12,31 +12,26 @@ final class UnreadCountView: NSView {
 
 	@MainActor struct Appearance {
 
-		static let padding = NSEdgeInsets(top: 1.0, left: 7.0, bottom: 1.0, right: 7.0)
-		static let cornerRadius: CGFloat = 8.0
+		// A tighter capsule than the stock one: less side room and a smaller count.
+		static let padding = NSEdgeInsets(top: 1.0, left: 5.0, bottom: 1.0, right: 5.0)
 
-		// macOS 26: no background pill, subtle text
-		// macOS 15: traditional background pill with named colors
-		static let useTraditionalBadge: Bool = {
-			if #available(macOS 26, *) {
-				return false
-			}
-			return true
-		}()
+		// Always the capsule badge; the macOS 26 plain-text style is not used.
+		static let useTraditionalBadge = true
 
-		static let backgroundColor: NSColor = {
+		static var backgroundColor: NSColor {
 			if useTraditionalBadge {
-				return Assets.Colors.sidebarUnreadCountBackground
+				return AppDefaults.sidebarBadgeBackgroundColor ?? Assets.Colors.sidebarUnreadCountBackground
 			}
 			return NSColor.clear
-		}()
+		}
 
 		static let textSize: CGFloat = {
 			if useTraditionalBadge {
-				return 11.0
+				return 9.5
 			}
 			return 13.0
 		}()
+		static let textOpacity: CGFloat = 0.8
 
 		static let textFont: NSFont = {
 			if useTraditionalBadge {
@@ -52,6 +47,21 @@ final class UnreadCountView: NSView {
 			needsDisplay = true
 		}
 	}
+	private var defaultsObserver: NSObjectProtocol?
+
+	// The badge colors come from Appearance settings; repaint when they change.
+	override func viewDidMoveToWindow() {
+		super.viewDidMoveToWindow()
+		guard defaultsObserver == nil else {
+			return
+		}
+		defaultsObserver = NotificationCenter.default.addObserver(forName: UserDefaults.didChangeNotification, object: nil, queue: .main) { [weak self] _ in
+			Task { @MainActor in
+				self?.needsDisplay = true
+			}
+		}
+	}
+
 	/// Text for the unread count, or nil when nothing should be drawn.
 	var unreadCountText: String? {
 		AppDefaults.unreadCountDisplay.text(for: unreadCount)
@@ -69,7 +79,8 @@ final class UnreadCountView: NSView {
 
 	private var currentTextColor: NSColor {
 		if Appearance.useTraditionalBadge {
-			return Assets.Colors.sidebarUnreadCountText
+			// A picked color is used as picked; only the stock color is dimmed.
+			return AppDefaults.sidebarBadgeTextColor ?? Assets.Colors.sidebarUnreadCountText.withAlphaComponent(Appearance.textOpacity)
 		}
 		return isSelected ? NSColor.white : NSColor.secondaryLabelColor
 	}
@@ -152,7 +163,8 @@ final class UnreadCountView: NSView {
 			return
 		}
 
-		let path = NSBezierPath(roundedRect: bounds, xRadius: Appearance.cornerRadius, yRadius: Appearance.cornerRadius)
+		let capsuleRadius = bounds.height / 2
+		let path = NSBezierPath(roundedRect: bounds, xRadius: capsuleRadius, yRadius: capsuleRadius)
 		Appearance.backgroundColor.setFill()
 		path.fill()
 

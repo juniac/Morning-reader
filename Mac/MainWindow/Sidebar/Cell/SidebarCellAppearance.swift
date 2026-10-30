@@ -17,18 +17,29 @@ struct SidebarCellAppearance: Equatable {
 	let textFieldFont: NSFont
 
 	init(rowSizeStyle: NSTableView.RowSizeStyle) {
+    let defaultFontSize: CGFloat
 		switch rowSizeStyle {
 		case .small:
 			imageSize = CGSize(width: 16, height: 16)
-			textFieldFontSize = 11
+			defaultFontSize = 11
 		case .large:
 			imageSize = CGSize(width: 22, height: 22)
-			textFieldFontSize = 15
+			defaultFontSize = 15
 		default:
 			imageSize = CGSize(width: 19, height: 19)
-			textFieldFontSize = 13
+			defaultFontSize = 13
 		}
 
-		self.textFieldFont = NSFont.systemFont(ofSize: textFieldFontSize)
+    let customPointSize = AppDefaults.sidebarFontPointSize
+    textFieldFontSize = customPointSize > 0 ? customPointSize : defaultFontSize
+    textFieldFont = AppDefaults.font(familyName: AppDefaults.sidebarFontFamily, fontName: AppDefaults.sidebarFontName, size: textFieldFontSize)
 	}
+
+  /// Only meaningful when the user chose a font size; otherwise the system row size style decides.
+  var customRowHeight: CGFloat? {
+    guard AppDefaults.sidebarFontPointSize > 0 else {
+      return nil
+    }
+    return ceil(textFieldFontSize * 1.8)
+  }
 }

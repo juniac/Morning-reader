@@ -54,6 +54,9 @@ extension Notification.Name {
 		return SidebarOutlineDataSource(treeController: treeController)
 	}()
 
+  private var systemSidebarBackgroundColor = NSColor.clear
+  private var sidebarIconsAreGrayscale = AppDefaults.sidebarIconsAreGrayscale
+
 	var isReadFiltered: Bool {
 		get {
 			return treeControllerDelegate.isReadFiltered
@@ -91,8 +94,13 @@ extension Notification.Name {
 		self.init(nibName: "SidebarView", bundle: nil)
 	}
 
+  private var appliedSidebarCellAppearance: SidebarCellAppearance?
+
 	override func viewDidLoad() {
 		progressView?.isSuppressed = !showsProgressView
+		// The xib's source-list color; kept so "Use Default" can restore it.
+		systemSidebarBackgroundColor = outlineView.backgroundColor
+		applySidebarBackgroundColor()
 		outlineView.keyboardDelegate = keyboardDelegate
 		outlineView.dataSource = dataSource
 		outlineView.doubleAction = #selector(doubleClickedSidebar(_:))
@@ -113,6 +121,8 @@ extension Notification.Name {
 		NotificationCenter.default.addObserver(self, selector: #selector(feedSettingDidChange(_:)), name: .feedSettingDidChange, object: nil)
 		NotificationCenter.default.addObserver(self, selector: #selector(displayNameDidChange(_:)), name: .DisplayNameDidChange, object: nil)
 		DistributedNotificationCenter.default().addObserver(self, selector: #selector(appleSideBarDefaultIconSizeChanged(_:)), name: .appleSideBarDefaultIconSizeChanged, object: nil)
+    NotificationCenter.default.addObserver(self, selector: #selector(userDefaultsDidChange(_:)), name: UserDefaults.didChangeNotification, object: nil)
+    applySidebarFontSettings()
 
 		if let clipView = outlineView.enclosingScrollView?.contentView {
 			clipView.postsFrameChangedNotifications = true
@@ -301,6 +311,56 @@ extension Notification.Name {
 		restoreSelection(to: savedSelection, sendNotificationIfChanged: true)
 	}
 
+  @objc func userDefaultsDidChange(_ note: Notification) {
+    Task { @MainActor in
+      self.applySidebarBackgroundColor()
+      if self.sidebarIconsAreGrayscale != AppDefaults.sidebarIconsAreGrayscale {
+        self.sidebarIconsAreGrayscale = AppDefaults.sidebarIconsAreGrayscale
+        self.outlineView.reloadData()
+      }
+      let appearance = SidebarCellAppearance(rowSizeStyle: self.systemRowSizeStyle)
+      guard appearance != self.appliedSidebarCellAppearance else {
+        return
+      }
+      self.applySidebarFontSettings()
+    }
+  }
+
+  func applySidebarBackgroundColor() {
+    let color = AppDefaults.sidebarBackgroundColor ?? systemSidebarBackgroundColor
+    if outlineView.backgroundColor != color {
+      outlineView.backgroundColor = color
+    }
+  }
+
+  /// The system sidebar size, even while the row height is overridden for a custom font size.
+  var systemRowSizeStyle: NSTableView.RowSizeStyle {
+    guard outlineView.rowSizeStyle == .custom else {
+      return outlineView.effectiveRowSizeStyle
+    }
+    // ponytail: mirrors what effectiveRowSizeStyle reads for .default; 1 = small, 2 = medium, 3 = large.
+    switch UserDefaults.standard.integer(forKey: "NSTableViewDefaultSizeMode") {
+    case 1:
+      return .small
+    case 3:
+      return .large
+    default:
+      return .medium
+    }
+  }
+
+  func applySidebarFontSettings() {
+    let appearance = SidebarCellAppearance(rowSizeStyle: systemRowSizeStyle)
+    appliedSidebarCellAppearance = appearance
+    if let customRowHeight = appearance.customRowHeight {
+      outlineView.rowSizeStyle = .custom
+      outlineView.rowHeight = customRowHeight
+    } else {
+      outlineView.rowSizeStyle = .default
+    }
+    outlineView.reloadData()
+  }
+
 	@objc func appleSideBarDefaultIconSizeChanged(_ note: Notification) {
 		// The outline view doesn't have the new row style size set yet when we get
 		// this notification, so give it half a second to catch up.
@@ -415,7 +475,8 @@ extension Notification.Name {
 	func contextualMenuForClickedRows() -> NSMenu? {
 		let row = outlineView.clickedRow
 		guard row != -1, let node = nodeForRow(row) else {
-			return nil
+      // Empty space below the last row: offer the same commands as the toolbar "+" menu.
+      return menu(for: nil)
 		}
 
 		if outlineView.selectedRowIndexes.contains(row) {
@@ -424,7 +485,8 @@ extension Notification.Name {
 		}
 
 		let object = node.representedObject
-		return menu(for: [object])
+    // Account header rows have no menu of their own, so they get the add commands too.
+    return menu(for: [object]) ?? menu(for: nil)
 	}
 
 	// MARK: - NSMenuDelegate
@@ -881,11 +943,12 @@ private extension SidebarViewController {
 	}
 
 	func configure(_ cell: SidebarCell, _ node: Node) {
-		cell.cellAppearance = SidebarCellAppearance(rowSizeStyle: outlineView.effectiveRowSizeStyle)
+		cell.cellAppearance = SidebarCellAppearance(rowSizeStyle: systemRowSizeStyle)
 		cell.name = nameFor(node)
 		configureUnreadCount(cell, node)
 		cell.updateUnreadCountView() // A reused cell may predate a display setting change
 		configureFavicon(cell, node)
+		cell.refreshIcon() // A reused cell with the same icon still needs the current grayscale setting
 		cell.shouldShowImage = node.representedObject is SmallIconProvider
 	}
 

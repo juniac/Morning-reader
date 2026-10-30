@@ -73,6 +73,11 @@ final class SidebarCell: NSTableCellView {
 	}()
 
 	private let faviconImageView = IconView()
+
+	/// Re-applies the icon with the current Appearance settings, for a reused cell whose icon did not change.
+	func refreshIcon() {
+		updateFaviconImage()
+	}
 	private let unreadCountView = UnreadCountView(frame: NSRect.zero)
 
 	override var backgroundStyle: NSView.BackgroundStyle {
@@ -146,6 +151,7 @@ private extension SidebarCell {
 	}
 
 	func updateFaviconImage() {
+		faviconImageView.isGrayscale = AppDefaults.sidebarIconsAreGrayscale
 		var updatedIconImage = iconImage
 
 		if let iconImage = iconImage, iconImage.isSymbol {
