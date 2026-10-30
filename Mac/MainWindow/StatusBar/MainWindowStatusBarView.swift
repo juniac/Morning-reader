@@ -9,9 +9,9 @@
 import AppKit
 import Account
 import RSCore
+import SwiftUI
 
 @MainActor protocol MainWindowStatusBarViewDelegate: AnyObject {
-	func statusBarViewGearMenu(_ statusBarView: MainWindowStatusBarView) -> NSMenu?
 	/// `position` is in the status bar’s coordinates.
 	func statusBarView(_ statusBarView: MainWindowStatusBarView, moveSidebarDividerTo position: CGFloat)
 }
@@ -61,7 +61,7 @@ final class MainWindowStatusBarView: NSView {
 	// Measured from the mockup: 32 points including the top line.
 	static let height: CGFloat = 32
 
-	private let gearButton = StatusBarGearButton()
+	private let settingsButton = NSHostingView(rootView: SettingsSideButton())
 	private let progressIndicator = NSProgressIndicator()
 	private let countLabel = NSTextField(labelWithString: "")
 	private let splitHandleView = StatusBarSplitHandleView()
@@ -86,9 +86,11 @@ final class MainWindowStatusBarView: NSView {
 	private static let spacingBeforeThemeMenu: CGFloat = 8
 	private static let progressIndicatorWidth: CGFloat = 40
 
-	private static let topLineColor = dynamicColor(lightWhite: 224 / 255, darkWhite: 0.1)
+	private static let defaultTopLineColor = dynamicColor(lightWhite: 224 / 255, darkWhite: 0.1)
 	// Lighter than the grip, close to the system’s sidebar divider above the bar.
-	private static let dividerColor = dynamicColor(lightWhite: 204 / 255, darkWhite: 0.28)
+	private static let defaultDividerColor = dynamicColor(lightWhite: 204 / 255, darkWhite: 0.28)
+	private static var topLineColor: NSColor { AppDefaults.borderColor ?? defaultTopLineColor }
+	private static var dividerColor: NSColor { AppDefaults.borderColor ?? defaultDividerColor }
 	private static let gripColor = dynamicColor(lightWhite: 180 / 255, darkWhite: 0.35)
 
 	// The ||| grip: three hairlines, the last one 6.5 points before the divider.
@@ -100,9 +102,6 @@ final class MainWindowStatusBarView: NSView {
 	private static let dragAreaReachBeforeDivider: CGFloat = 17
 	private static let dragAreaReachAfterDivider: CGFloat = 6
 	private static let textColor = dynamicColor(lightWhite: 44 / 255, darkWhite: 0.85)
-	private static let gradient = NSGradient(starting: dynamicColor(lightWhite: 217 / 255, darkWhite: 0.17), ending: dynamicColor(lightWhite: 242 / 255, darkWhite: 0.22))
-	// Bottom to top, so the gradient starts with the darker color at the bottom.
-	private static let gradientAngle: CGFloat = 90
 
 	/// The etched look: a light line just below the text and icons. In dark mode, a dark line.
 	static let etchedShadow: NSShadow = {
@@ -125,8 +124,9 @@ final class MainWindowStatusBarView: NSView {
 		commonInit()
 	}
 
+	// No background of its own: the window shows through.
 	override var isOpaque: Bool {
-		true
+		false
 	}
 
 	override func layout() {
@@ -135,9 +135,10 @@ final class MainWindowStatusBarView: NSView {
 		// The content area is everything below the top line.
 		let contentHeight = bounds.height - Self.topLineThickness
 
-		gearButton.frame = NSRect(x: Self.leadingMargin, y: 0, width: gearButton.intrinsicContentSize.width, height: contentHeight)
+		let settingsSize = settingsButton.fittingSize
+		settingsButton.frame = NSRect(x: Self.leadingMargin - 10, y: floor((contentHeight - settingsSize.height) / 2), width: settingsSize.width, height: settingsSize.height)
 
-		var leftContentMaxX = gearButton.frame.maxX
+		var leftContentMaxX = settingsButton.frame.maxX
 		var x = leftContentMaxX + Self.spacingAfterGear
 		if !progressIndicator.isHidden {
 			leftContentMaxX = place(progressIndicator, x: x, width: Self.progressIndicatorWidth, contentHeight: contentHeight).maxX
@@ -165,10 +166,6 @@ final class MainWindowStatusBarView: NSView {
 
 	override func draw(_ dirtyRect: NSRect) {
 		// Draw within bounds only: views don’t clip to bounds by default, and dirtyRect can extend past them.
-		if let gradient = Self.gradient {
-			gradient.draw(in: bounds, angle: Self.gradientAngle)
-		}
-
 		Self.topLineColor.setFill()
 		NSRect(x: bounds.minX, y: bounds.maxY - Self.topLineThickness, width: bounds.width, height: Self.topLineThickness).fill()
 
@@ -287,15 +284,6 @@ extension MainWindowStatusBarView: NSMenuItemValidation {
 	}
 }
 
-// MARK: - StatusBarGearButtonDelegate
-
-extension MainWindowStatusBarView: StatusBarGearButtonDelegate {
-
-	func gearButtonMenu(_ gearButton: StatusBarGearButton) -> NSMenu? {
-		delegate?.statusBarViewGearMenu(self)
-	}
-}
-
 // MARK: - StatusBarSplitHandleViewDelegate
 
 extension MainWindowStatusBarView: StatusBarSplitHandleViewDelegate {
@@ -324,8 +312,6 @@ private extension MainWindowStatusBarView {
 		setAccessibilityRole(.group)
 		setAccessibilityLabel(NSLocalizedString("Status Bar", comment: "Main window status bar accessibility label"))
 
-		gearButton.delegate = self
-
 		progressIndicator.style = .bar
 		progressIndicator.controlSize = .small
 		progressIndicator.isIndeterminate = false
@@ -349,7 +335,7 @@ private extension MainWindowStatusBarView {
 		updateThemePopUpButtonShadow()
 
 		// The split handle is added last so it’s on top: it straddles the left section’s edge.
-		for view in [gearButton, progressIndicator, countLabel, linkLabel, themePopUpButton, splitHandleView] {
+		for view in [settingsButton, progressIndicator, countLabel, linkLabel, themePopUpButton, splitHandleView] {
 			addSubview(view)
 		}
 
@@ -361,6 +347,11 @@ private extension MainWindowStatusBarView {
 	}
 
 	func addObservers() {
+		NotificationCenter.default.addObserver(forName: UserDefaults.didChangeNotification, object: nil, queue: .main) { [weak self] _ in
+			Task { @MainActor in
+				self?.needsDisplay = true
+			}
+		}
 		NotificationCenter.default.addObserver(self, selector: #selector(handleUnreadCountDidChange(_:)), name: .UnreadCountDidChange, object: nil)
 		NotificationCenter.default.addObserver(self, selector: #selector(handleUnreadCountDidChange(_:)), name: .UnreadCountDidInitialize, object: nil)
 		NotificationCenter.default.addObserver(self, selector: #selector(handleUnreadCountDisplaySettingDidChange(_:)), name: .unreadCountDisplaySettingDidChange, object: nil)
