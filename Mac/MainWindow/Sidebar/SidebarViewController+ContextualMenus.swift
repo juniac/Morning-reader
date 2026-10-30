@@ -94,7 +94,9 @@ extension SidebarViewController {
 		guard let undoManager = undoManager, let markReadCommand = MarkStatusCommand(initialArticles: Array(articles), markingRead: true, undoManager: undoManager) else {
 			return
 		}
-		runCommand(markReadCommand)
+    MarkAllAsReadConfirmation.run(on: view.window, articleCount: articles.count) {
+      self.runCommand(markReadCommand)
+    }
 	}
 
 	@objc func deleteFromContextualMenu(_ sender: Any?) {
@@ -167,7 +169,7 @@ extension SidebarViewController {
 		DispatchQueue.main.async {
 			let alert = NSAlert()
 			alert.messageText = NSLocalizedString("Notifications are not enabled", comment: "Notifications are not enabled.")
-			alert.informativeText = NSLocalizedString("You can enable NetNewsWire notifications in System Preferences.", comment: "Notifications are not enabled.")
+			alert.informativeText = NSLocalizedString("You can enable Morning notifications in System Preferences.", comment: "Notifications are not enabled.")
 			alert.addButton(withTitle: NSLocalizedString("Open System Preferences", comment: "Open System Preferences"))
 			alert.addButton(withTitle: NSLocalizedString("Dismiss", comment: "Dismiss"))
 			let userChoice = alert.runModal()
@@ -239,6 +241,7 @@ private extension SidebarViewController {
 
 		menu.addItem(withTitle: NSLocalizedString("New Feed…", comment: "Command"), action: #selector(AppDelegate.showAddFeedWindow(_:)), keyEquivalent: "")
 		menu.addItem(withTitle: NSLocalizedString("New Folder…", comment: "Command"), action: #selector(AppDelegate.showAddFolderWindow(_:)), keyEquivalent: "")
+    menu.addItem(withTitle: NSLocalizedString("Import Feeds…", comment: "Command"), action: #selector(AppDelegate.showImportFeedsWindow(_:)), keyEquivalent: "")
 
 		return menu
 	}

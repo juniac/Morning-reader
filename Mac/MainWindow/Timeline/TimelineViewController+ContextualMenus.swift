@@ -89,7 +89,9 @@ extension TimelineViewController {
 			return
 		}
 
-		runCommand(markReadCommand)
+    MarkAllAsReadConfirmation.run(on: view.window, articleCount: unreadArticles.count) {
+      self.runCommand(markReadCommand)
+    }
 	}
 
 	@objc func openInBrowserFromContextualMenu(_ sender: Any?) {
