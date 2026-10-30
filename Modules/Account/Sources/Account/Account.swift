@@ -533,6 +533,34 @@ public enum FetchType {
 		}
 	}
 
+  /// Adds a user-chosen subset of feeds from an OPML file to `container`.
+  /// Feeds already in this account are skipped.
+  /// A local account adds them to the tree directly, like a full OPML import does, so nothing is
+  /// downloaded before the feed appears in the sidebar. A sync account must create each subscription
+  /// on the service, so it goes through `createFeed` with validation turned off.
+  public func addOPMLFeeds(_ feedSpecifiers: [OPMLFeedSpecifier], to container: Container) async throws {
+    let newFeedSpecifiers = feedSpecifiers.filter { !hasFeed(withURL: $0.feedURL) }
+    guard !newFeedSpecifiers.isEmpty else {
+      return
+    }
+
+    if type == .onMyMac {
+      BatchUpdate.shared.perform {
+        for feedSpecifier in newFeedSpecifiers {
+          container.addFeedToTreeAtTopLevel(newFeed(with: feedSpecifier, isManualImport: true))
+        }
+      }
+      // Reset the last fetch date to get the article history for the added feeds.
+      lastArticleFetchStartTime = nil
+      try? await delegate.refreshAll()
+      return
+    }
+
+    for feedSpecifier in newFeedSpecifiers {
+      _ = try await delegate.createFeed(url: feedSpecifier.feedURL, name: feedSpecifier.title, container: container, validateFeed: false)
+    }
+  }
+
 	// MARK: - Suspend/Resume
 
 	public func suspendNetwork() {
