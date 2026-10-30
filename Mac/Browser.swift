@@ -6,7 +6,7 @@
 //  Copyright © 2016 Ranchero Software, LLC. All rights reserved.
 //
 
-import Foundation
+import AppKit
 import RSWeb
 
 @MainActor struct Browser {
@@ -59,6 +59,10 @@ import RSWeb
 			configuration.activates = false
 		}
 
+		if inBackground {
+			FocusReclaimer.shared.arm()
+		}
+
 		NSWorkspace.shared.open(preparedURL, configuration: configuration) { _, error in
 			Task { @MainActor in
 				guard error != nil else {
@@ -71,6 +75,39 @@ import RSWeb
 				}
 			}
 		}
+	}
+}
+
+/// Chromium browsers come to the front even when asked to open in the background. For a few seconds
+/// after such an open, the first activation of another app hands focus straight back to this one.
+@MainActor private final class FocusReclaimer {
+
+	static let shared = FocusReclaimer()
+	private var observer: NSObjectProtocol?
+	private static let windowSeconds: TimeInterval = 4
+
+	func arm() {
+		disarm()
+		observer = NSWorkspace.shared.notificationCenter.addObserver(forName: NSWorkspace.didActivateApplicationNotification, object: nil, queue: .main) { [weak self] note in
+			let activated = note.userInfo?[NSWorkspace.applicationUserInfoKey] as? NSRunningApplication
+			Task { @MainActor in
+				guard let self, let activated, activated != .current else {
+					return
+				}
+				self.disarm()
+				NSApp.activate(ignoringOtherApps: true)
+			}
+		}
+		DispatchQueue.main.asyncAfter(deadline: .now() + Self.windowSeconds) { [weak self] in
+			self?.disarm()
+		}
+	}
+
+	private func disarm() {
+		if let observer {
+			NSWorkspace.shared.notificationCenter.removeObserver(observer)
+		}
+		observer = nil
 	}
 }
 

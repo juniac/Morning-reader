@@ -14,7 +14,6 @@
         <customObject id="-3" userLabel="Application" customClass="NSObject"/>
         <customObject id="Voe-Tx-rLC" customClass="AppDelegate" customModule="NetNewsWire" customModuleProvider="target">
             <connections>
-                <outlet property="checkForUpdatesMenuItem" destination="1nF-7O-aKU" id="JmT-jc-DJ8"/>
                 <outlet property="debugMenuItem" destination="UqE-mp-gtV" id="OnR-lr-Zlt"/>
                 <outlet property="useColumnLayoutMenuItem" destination="ucL-ay-0ut" id="ucL-ou-tl1"/>
                 <outlet property="showStatusBarMenuItem" destination="stB-ar-mI1" id="stB-ar-oU1"/>
@@ -23,11 +22,11 @@
         </customObject>
         <menu title="Main Menu" systemMenu="main" id="AYu-sK-qS6">
             <items>
-                <menuItem title="NetNewsWire" id="1Xt-HY-uBw">
+                <menuItem title="Morning" id="1Xt-HY-uBw">
                     <modifierMask key="keyEquivalentModifierMask"/>
-                    <menu key="submenu" title="NetNewsWire" systemMenu="apple" id="uQy-DD-JDr">
+                    <menu key="submenu" title="Morning" systemMenu="apple" id="uQy-DD-JDr">
                         <items>
-                            <menuItem title="About NetNewsWire" id="5kV-Vb-QxS">
+                            <menuItem title="About Morning" id="5kV-Vb-QxS">
                                 <modifierMask key="keyEquivalentModifierMask"/>
                                 <connections>
                                     <action selector="showCustomAboutPanel:" target="Voe-Tx-rLC" id="ZQV-QH-KmS"/>
@@ -39,19 +38,13 @@
                                     <action selector="showPreferences:" target="-1" id="Syu-AN-6P4"/>
                                 </connections>
                             </menuItem>
-                            <menuItem title="Check for Updates…" id="1nF-7O-aKU">
-                                <modifierMask key="keyEquivalentModifierMask"/>
-                                <connections>
-                                    <action selector="checkForUpdates:" target="-1" id="htt-e3-mEy"/>
-                                </connections>
-                            </menuItem>
                             <menuItem isSeparatorItem="YES" id="wFC-TO-SCJ"/>
                             <menuItem title="Services" id="NMo-om-nkz">
                                 <modifierMask key="keyEquivalentModifierMask"/>
                                 <menu key="submenu" title="Services" systemMenu="services" id="hz9-B4-Xy5"/>
                             </menuItem>
                             <menuItem isSeparatorItem="YES" id="4je-JR-u6R"/>
-                            <menuItem title="Hide NetNewsWire" keyEquivalent="h" id="Olw-nP-bQN">
+                            <menuItem title="Hide Morning" keyEquivalent="h" id="Olw-nP-bQN">
                                 <connections>
                                     <action selector="hide:" target="-1" id="PnN-Uc-m68"/>
                                 </connections>
@@ -69,7 +62,7 @@
                                 </connections>
                             </menuItem>
                             <menuItem isSeparatorItem="YES" id="kCx-OE-vgT"/>
-                            <menuItem title="Quit NetNewsWire" keyEquivalent="q" id="4sb-4s-VLi">
+                            <menuItem title="Quit Morning" keyEquivalent="q" id="4sb-4s-VLi">
                                 <connections>
                                     <action selector="terminate:" target="-1" id="Te7-pn-YzF"/>
                                 </connections>
@@ -89,6 +82,12 @@
                             <menuItem title="New Folder…" keyEquivalent="N" id="wkh-LX-Xp1">
                                 <connections>
                                     <action selector="showAddFolderWindow:" target="-1" id="GIi-wc-uYk"/>
+                                </connections>
+                            </menuItem>
+                            <menuItem title="Import Feeds…" id="Opm-Fd-Imp">
+                                <modifierMask key="keyEquivalentModifierMask"/>
+                                <connections>
+                                    <action selector="showImportFeedsWindow:" target="-1" id="Opm-Fd-Act"/>
                                 </connections>
                             </menuItem>
                             <menuItem isSeparatorItem="YES" id="m54-Is-iLE"/>

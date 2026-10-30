@@ -19,16 +19,15 @@ import RSCoreResources
 import RSWeb
 import Secrets
 import CrashReporter
-import Sparkle
 import Images
 import HTMLMetadata
 
-let appName = "NetNewsWire"
+let appName = "Morning"
 
 @MainActor var appDelegate: AppDelegate!
 
 @main
-@MainActor final class AppDelegate: NSObject, NSApplicationDelegate, NSUserInterfaceValidations, UNUserNotificationCenterDelegate, UnreadCountProvider, SPUStandardUserDriverDelegate, SPUUpdaterDelegate {
+@MainActor final class AppDelegate: NSObject, NSApplicationDelegate, NSUserInterfaceValidations, UNUserNotificationCenterDelegate, UnreadCountProvider {
 
 	static private let logger = Logger(subsystem: Logger.nnwSubsystem, category: "AppDelegate")
 
@@ -55,7 +54,6 @@ let appName = "NetNewsWire"
 	@IBOutlet var useColumnLayoutMenuItem: NSMenuItem?
 	@IBOutlet var showStatusBarMenuItem: NSMenuItem?
 	@IBOutlet var showStatusBarThemeMenuMenuItem: NSMenuItem?
-	@IBOutlet var checkForUpdatesMenuItem: NSMenuItem!
 
 	var unreadCount = 0 {
 		didSet {
@@ -88,6 +86,7 @@ let appName = "NetNewsWire"
 	private var addFeedController: AddFeedController?
 	private var addFolderWindowController: AddFolderWindowController?
 	private var importOPMLController: ImportOPMLWindowController?
+  private var importSubscriptionsController: ImportSubscriptionsController?
 	private var exportOPMLController: ExportOPMLWindowController?
 	private var keyboardShortcutsWindowController: WebViewWindowController?
 	private var inspectorWindowController: InspectorWindowController?
@@ -99,7 +98,6 @@ let appName = "NetNewsWire"
 	private var cloudKitStatsWindowController: CloudKitStatsWindowController?
 	private var accountStatsWindowController: AccountStatsWindowController?
 	private let appMovementMonitor: RSAppMovementMonitor
-	private var softwareUpdater: SPUUpdater?
 	private var crashReporter: PLCrashReporter?
 
 	private var themeImportPath: String?
@@ -121,6 +119,8 @@ let appName = "NetNewsWire"
 
 		NotificationCenter.default.addObserver(self, selector: #selector(unreadCountDidChange(_:)), name: .UnreadCountDidChange, object: AccountManager.shared)
 		NotificationCenter.default.addObserver(self, selector: #selector(handleUnreadCountDisplaySettingDidChange(_:)), name: .unreadCountDisplaySettingDidChange, object: nil)
+    NotificationCenter.default.addObserver(self, selector: #selector(updateDockBadge), name: UserDefaults.didChangeNotification, object: nil)
+    NotificationCenter.default.addObserver(self, selector: #selector(updateDockBadge), name: .UnreadCountDidChange, object: SmartFeedsController.shared.todayFeed)
 		NotificationCenter.default.addObserver(self, selector: #selector(inspectableObjectsDidChange(_:)), name: .InspectableObjectsDidChange, object: nil)
 		NotificationCenter.default.addObserver(self, selector: #selector(importDownloadedTheme(_:)), name: .didEndDownloadingTheme, object: nil)
 		NotificationCenter.default.addObserver(self, selector: #selector(themeImportError(_:)), name: .didFailToImportThemeWithError, object: nil)
@@ -172,27 +172,6 @@ let appName = "NetNewsWire"
 
 		// Load now, while the app bundle is readable. A translocated app that gets moved can’t read it later.
 		_ = MainWindowKeyboardHandler.shared
-
-		// Ensure the Sparkle feed URL is one of the two supported URLs.
-		// Default to the release builds URL from Info.plist.
-		if let infoDictionary = Bundle.main.infoDictionary,
-		   let releaseBuildsURL = infoDictionary["SUFeedURL"] as? String,
-		   let testBuildsURL = infoDictionary["FeedURLForTestBuilds"] as? String,
-		   let currentFeedURL = UserDefaults.standard.string(forKey: "SUFeedURL"),
-		   currentFeedURL != releaseBuildsURL && currentFeedURL != testBuildsURL {
-			UserDefaults.standard.set(releaseBuildsURL, forKey: "SUFeedURL")
-		}
-
-		// Initialize Sparkle...
-		let hostBundle = Bundle.main
-		let updateDriver = SPUStandardUserDriver(hostBundle: hostBundle, delegate: self)
-		softwareUpdater = SPUUpdater(hostBundle: hostBundle, applicationBundle: hostBundle, userDriver: updateDriver, delegate: self)
-
-		do {
-			try softwareUpdater?.start()
-		} catch {
-			Self.logger.error("Failed to start software updater with error: \(error.localizedDescription)")
-		}
 
 		AppDefaults.registerDefaults()
 		let isFirstRun = AppDefaults.isFirstRun
@@ -265,7 +244,14 @@ let appName = "NetNewsWire"
 		NSApplication.shared.registerForRemoteNotifications()
 
 		// Badging the Dock icon needs this permission — it’s not just for alerts.
-		UNUserNotificationCenter.current().requestAuthorization(options: [.badge, .sound, .alert]) { _, _ in }
+		UNUserNotificationCenter.current().requestAuthorization(options: [.badge, .sound, .alert]) { granted, error in
+			// Without this permission macOS hides the Dock badge, so the answer is worth a log line.
+			Self.logger.info("Notification authorization granted: \(granted, privacy: .public) error: \(String(describing: error), privacy: .public)")
+		}
+
+		UNUserNotificationCenter.current().getNotificationSettings { settings in
+			Self.logger.info("Notification settings: authorization \(settings.authorizationStatus.rawValue, privacy: .public) badge \(settings.badgeSetting.rawValue, privacy: .public)")
+		}
 
 		UNUserNotificationCenter.current().delegate = self
 		UserNotificationManager.shared.start()
@@ -497,7 +483,7 @@ let appName = "NetNewsWire"
 			return !isDisplayingSheet && !AccountManager.shared.anyAccountHasNetNewsWireNewsSubscription() && !AccountManager.shared.activeAccounts.isEmpty
 		}
 
-		if item.action == #selector(showAddFeedWindow(_:)) || item.action == #selector(showAddFolderWindow(_:)) {
+		if item.action == #selector(showAddFeedWindow(_:)) || item.action == #selector(showAddFolderWindow(_:)) || item.action == #selector(showImportFeedsWindow(_:)) {
 			return !isDisplayingSheet && !AccountManager.shared.activeAccounts.isEmpty
 		}
 
@@ -571,7 +557,12 @@ let appName = "NetNewsWire"
 	// MARK: - Dock Badge
 	@objc func updateDockBadge() {
 		Task { @MainActor in
-			NSApplication.shared.dockTile.badgeLabel = AppDefaults.unreadCountDisplay.text(for: unreadCount) ?? ""
+      guard AppDefaults.showAppIconUnreadCountBadge else {
+        NSApplication.shared.dockTile.badgeLabel = ""
+        return
+      }
+			// The badge counts Today's unread articles, the same number as the Today smart feed in the sidebar.
+			NSApplication.shared.dockTile.badgeLabel = AppDefaults.unreadCountDisplay.text(for: SmartFeedsController.shared.todayFeed.unreadCount) ?? ""
 		}
 	}
 
@@ -684,6 +675,15 @@ let appName = "NetNewsWire"
 		importOPMLController?.runSheetOnWindow(windowController.window!)
 	}
 
+  @IBAction func showImportFeedsWindow(_ sender: Any?) {
+    let windowController = createAndShowMainWindowIfNecessary()
+    guard !windowController.isDisplayingSheet, let window = windowController.window else {
+      return
+    }
+    importSubscriptionsController = ImportSubscriptionsController(hostWindow: window, initialContainer: addFeedContainerFromSidebarSelection())
+    importSubscriptionsController?.start()
+  }
+
 	@IBAction func importNNW3FromFile(_ sender: Any?) {
 		let windowController = createAndShowMainWindowIfNecessary()
 		if windowController.isDisplayingSheet {
@@ -781,9 +781,6 @@ let appName = "NetNewsWire"
 		AppDefaults.showStatusBarThemeMenu.toggle()
 	}
 
-	@IBAction func checkForUpdates(_ sender: Any?) {
-		softwareUpdater?.checkForUpdates()
-	}
 }
 
 // MARK: - Debug Menu
