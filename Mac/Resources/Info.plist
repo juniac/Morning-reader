@@ -10,18 +10,20 @@
 	<false/>
 	<key>CFBundleDevelopmentRegion</key>
 	<string>en</string>
+	<key>CFBundleDisplayName</key>
+	<string>Morning</string>
 	<key>CFBundleExecutable</key>
 	<string>$(EXECUTABLE_NAME)</string>
 	<key>NSAutoFillRequiresTextContentTypeForOneTimeCodeOnMac</key>
 	<true/>
 	<key>CFBundleIconFile</key>
-	<string>AppIcon</string>
+	<string>morning</string>
 	<key>CFBundleIdentifier</key>
 	<string>$(PRODUCT_BUNDLE_IDENTIFIER)</string>
 	<key>CFBundleInfoDictionaryVersion</key>
 	<string>6.0</string>
 	<key>CFBundleName</key>
-	<string>$(PRODUCT_NAME)</string>
+	<string>Morning</string>
 	<key>CFBundlePackageType</key>
 	<string>APPL</string>
 	<key>CFBundleShortVersionString</key>
@@ -46,8 +48,6 @@
 	<string>$(CURRENT_PROJECT_VERSION)</string>
 	<key>DeveloperEntitlements</key>
 	<string>$(DEVELOPER_ENTITLEMENTS)</string>
-	<key>FeedURLForTestBuilds</key>
-	<string>https://ranchero.com/downloads/netnewswire-beta.xml</string>
 	<key>LSApplicationCategoryType</key>
 	<string>public.app-category.news</string>
 	<key>LSMinimumSystemVersion</key>
@@ -77,8 +77,6 @@
 	<string>$(ORGANIZATION_IDENTIFIER)</string>
 	<key>SUEnableInstallerLauncherService</key>
 	<true/>
-	<key>SUFeedURL</key>
-	<string>https://ranchero.com/downloads/netnewswire-release.xml</string>
 	<key>UserAgent</key>
 	<string>NetNewsWire (RSS Reader; https://netnewswire.com/)</string>
 	<key>UserAgentExtended</key>

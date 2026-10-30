@@ -1,0 +1,80 @@
+{
+  "fill" : {
+    "automatic-gradient" : "extended-srgb:0.00000,0.53333,1.00000,1.00000"
+  },
+  "groups" : [
+    {
+      "layers" : [
+        {
+          "blend-mode-specializations" : [
+            {
+              "appearance" : "dark",
+              "value" : "normal"
+            }
+          ],
+          "fill-specializations" : [
+            {
+              "appearance" : "dark",
+              "value" : "none"
+            }
+          ],
+          "glass" : true,
+          "image-name" : "clouds.png",
+          "name" : "clouds",
+          "position" : {
+            "scale" : 1,
+            "translation-in-points" : [
+              0,
+              204
+            ]
+          }
+        },
+        {
+          "glass" : true,
+          "image-name" : "paper-yellow.png",
+          "name" : "paper-yellow",
+          "position" : {
+            "scale" : 1,
+            "translation-in-points" : [
+              19,
+              0
+            ]
+          }
+        },
+        {
+          "glass" : false,
+          "image-name" : "paper-white.png",
+          "name" : "paper-white",
+          "position" : {
+            "scale" : 1,
+            "translation-in-points" : [
+              -93,
+              65
+            ]
+          }
+        },
+        {
+          "fill" : "none",
+          "glass" : true,
+          "hidden" : false,
+          "image-name" : "bg.jpg",
+          "name" : "bg"
+        }
+      ],
+      "shadow" : {
+        "kind" : "neutral",
+        "opacity" : 0.5
+      },
+      "translucency" : {
+        "enabled" : true,
+        "value" : 0.3
+      }
+    }
+  ],
+  "supported-platforms" : {
+    "circles" : [
+      "watchOS"
+    ],
+    "squares" : "shared"
+  }
+}
