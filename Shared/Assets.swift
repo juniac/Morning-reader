@@ -46,7 +46,12 @@ struct Assets {
 		static let articleExtractorOn: RSImage = RSImage(symbol: "text.page.fill")!
 		static let articleExtractorError: RSImage = RSImage(symbol: "text.page.slash")!
 		static let share = RSImage(symbol: "square.and.arrow.up")!
+		#if os(macOS)
+		// The outlined folder from the design, an SVG in the Mac asset catalog; the same glyph for closed and open.
+		static let folder = RSImage(named: "folderOutline")!
+		#else
 		static let folder = RSImage(symbol: "folder")!
+		#endif
 		static let starredFeed = IconImage(starClosed, isSymbol: true, isBackgroundSuppressed: true, preferredColor: Assets.Colors.star)
 
 #if os(macOS)
@@ -62,6 +67,9 @@ struct Assets {
 		static let preferencesToolbarAccounts = RSImage(symbol: "at")!
 		static let preferencesToolbarGeneral = RSImage(symbol: "gearshape")!
 		static let preferencesToolbarAdvanced = RSImage(symbol: "gearshape.2")!
+    static let preferencesToolbarAppearance = RSImage(symbol: "paintbrush")!
+    static let preferencesToolbarFeeds = RSImage(symbol: "dot.radiowaves.up.forward")!
+    static let preferencesToolbarShortcuts = RSImage(symbol: "keyboard")!
 		static let readClosed = RSImage(symbol: "largecircle.fill.circle")!
 		static let readOpen = RSImage(symbol: "circle")!
 		static let refresh = RSImage(symbol: "arrow.clockwise")!
@@ -73,7 +81,8 @@ struct Assets {
 		static let swipeMarkStarred = RSImage(systemSymbolName: "star.fill", accessibilityDescription: "Star")!
 		static let swipeMarkRead = RSImage(systemSymbolName: "circle", accessibilityDescription: "Mark Read")!
 		static let swipeMarkUnread = RSImage(systemSymbolName: "largecircle.fill.circle", accessibilityDescription: "Mark Unread")!
-		static let mainFolder = IconImage(folder, isSymbol: true, isBackgroundSuppressed: true, preferredColor: Assets.Colors.primaryAccent)
+		// Black in light mode, white in dark mode, instead of the accent color.
+		static let mainFolder = IconImage(folder, isSymbol: true, isBackgroundSuppressed: true, preferredColor: NSColor.labelColor)
 		static let todayFeed = IconImage(RSImage(symbol: "sun.max.fill")!, isSymbol: true, isBackgroundSuppressed: true, preferredColor: NSColor.orange)
 		static let unreadFeed = IconImage(RSImage(symbol: "largecircle.fill.circle")!, isSymbol: true, isBackgroundSuppressed: true, preferredColor: Assets.Colors.primaryAccent)
 

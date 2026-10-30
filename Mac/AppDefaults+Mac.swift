@@ -16,6 +16,65 @@ enum FontSize: Int {
 }
 
 /// What the status bar’s count text shows. Clicking the text cycles through them.
+/// How the feed icon is clipped in the article list.
+enum TimelineIconShape: Int, CaseIterable {
+  case original = 0
+  case square = 1
+  case rounded = 2
+  case circle = 3
+
+  static let defaultDimension: CGFloat = 48
+  static let minimumDimension: CGFloat = 16
+  static let maximumDimension: CGFloat = 64
+
+  var title: String {
+    switch self {
+    case .original:
+      NSLocalizedString("Original", comment: "Timeline icon shape")
+    case .square:
+      NSLocalizedString("Square", comment: "Timeline icon shape")
+    case .rounded:
+      NSLocalizedString("Rounded", comment: "Timeline icon shape")
+    case .circle:
+      NSLocalizedString("Circle", comment: "Timeline icon shape")
+    }
+  }
+
+  /// Original shows the image as-is: no clipping and no background box behind it.
+  var drawsBackground: Bool {
+    self != .original
+  }
+
+  func cornerRadius(forDimension dimension: CGFloat) -> CGFloat {
+    switch self {
+    case .original, .square:
+      0
+    case .rounded:
+      (dimension * 0.2).rounded()
+    case .circle:
+      dimension / 2
+    }
+  }
+}
+
+/// Which articles the article list shows. One setting for every feed; it survives relaunch.
+enum TimelineFilter: Int, CaseIterable {
+  case starred = 0
+  case unread = 1
+  case all = 2
+
+  var title: String {
+    switch self {
+    case .starred:
+      NSLocalizedString("Starred", comment: "Timeline filter")
+    case .unread:
+      NSLocalizedString("Unread", comment: "Timeline filter")
+    case .all:
+      NSLocalizedString("All", comment: "Timeline filter")
+    }
+  }
+}
+
 enum StatusBarCountMode: Int {
 	case unreadCount = 0
 	case foldersAndFeeds = 1
@@ -51,6 +110,32 @@ extension AppDefaults.Key {
 	static let importOPMLAccountID = "importOPMLAccountID"
 	static let exportOPMLAccountID = "exportOPMLAccountID"
 	static let defaultBrowserID = "defaultBrowserID"
+  static let showAppIconUnreadCountBadge = "showAppIconUnreadCountBadge"
+  static let confirmMarkAllAsRead = "confirmMarkAllAsRead"
+  static let sidebarFontFamily = "sidebarFontFamily"
+  static let sidebarFontPointSize = "sidebarFontPointSize"
+  static let sidebarFontName = "sidebarFontName"
+  static let timelineFontName = "timelineFontName"
+  static let articleFontName = "articleFontName"
+  static let articleFontFamily = "articleFontFamily"
+  static let timelineIconDimension = "timelineIconDimension"
+  static let timelineIconShape = "timelineIconShape"
+  static let timelineTitleIsBold = "timelineTitleIsBold"
+  static let timelineSummaryIsBold = "timelineSummaryIsBold"
+  static let timelineDimsReadArticles = "timelineDimsReadArticles"
+  static let sidebarIconsAreGrayscale = "sidebarIconsAreGrayscale"
+  static let timelineFilter = "timelineFilter"
+  static let timelineFontFamily = "timelineFontFamily"
+  static let timelineTitleFontPointSize = "timelineTitleFontPointSize"
+  static let timelineSummaryFontPointSize = "timelineSummaryFontPointSize"
+  static let articleTitleFontPointSize = "articleTitleFontPointSize"
+  static let articleBodyFontPointSize = "articleBodyFontPointSize"
+  static let sidebarBackgroundColor = "sidebarBackgroundColor"
+  static let timelineBackgroundColor = "timelineBackgroundColor"
+  static let articleBackgroundColor = "articleBackgroundColor"
+  static let borderColor = "borderColor"
+  static let sidebarBadgeTextColor = "sidebarBadgeTextColor"
+  static let sidebarBadgeBackgroundColor = "sidebarBadgeBackgroundColor"
 
 	// Hidden prefs
 	static let showDebugMenu = "ShowDebugMenu"
@@ -288,6 +373,285 @@ extension AppDefaults {
 		}
 	}
 
+  static var showAppIconUnreadCountBadge: Bool {
+    get {
+      UserDefaults.standard.bool(forKey: Key.showAppIconUnreadCountBadge)
+    }
+    set {
+      UserDefaults.standard.set(newValue, forKey: Key.showAppIconUnreadCountBadge)
+    }
+  }
+
+  static var confirmMarkAllAsRead: Bool {
+    get {
+      UserDefaults.standard.bool(forKey: Key.confirmMarkAllAsRead)
+    }
+    set {
+      UserDefaults.standard.set(newValue, forKey: Key.confirmMarkAllAsRead)
+    }
+  }
+
+  /// A font family name; nil means the system font.
+  static var sidebarFontFamily: String? {
+    get {
+      fontFamily(for: Key.sidebarFontFamily)
+    }
+    set {
+      UserDefaults.standard.set(newValue, forKey: Key.sidebarFontFamily)
+    }
+  }
+
+  /// 0 means the size that goes with the system sidebar icon size setting.
+  static var sidebarFontPointSize: CGFloat {
+    get {
+      CGFloat(UserDefaults.standard.double(forKey: Key.sidebarFontPointSize))
+    }
+    set {
+      UserDefaults.standard.set(Double(newValue), forKey: Key.sidebarFontPointSize)
+    }
+  }
+
+  /// PostScript names of the exact faces picked in the Fonts panel, so the chosen weight and style
+  /// apply too; nil means the family's regular face (or the system font when the family is nil).
+  static var sidebarFontName: String? {
+    get {
+      fontFamily(for: Key.sidebarFontName)
+    }
+    set {
+      UserDefaults.standard.set(newValue, forKey: Key.sidebarFontName)
+    }
+  }
+
+  static var timelineFontName: String? {
+    get {
+      fontFamily(for: Key.timelineFontName)
+    }
+    set {
+      UserDefaults.standard.set(newValue, forKey: Key.timelineFontName)
+    }
+  }
+
+  static var articleFontName: String? {
+    get {
+      fontFamily(for: Key.articleFontName)
+    }
+    set {
+      UserDefaults.standard.set(newValue, forKey: Key.articleFontName)
+    }
+  }
+
+  /// A font family name for article content; nil means the theme's own font.
+  static var articleFontFamily: String? {
+    get {
+      fontFamily(for: Key.articleFontFamily)
+    }
+    set {
+      UserDefaults.standard.set(newValue, forKey: Key.articleFontFamily)
+    }
+  }
+
+  /// Width and height, in points, of the feed icon in the article list.
+  static var timelineIconDimension: CGFloat {
+    get {
+      let dimension = CGFloat(UserDefaults.standard.double(forKey: Key.timelineIconDimension))
+      return dimension > 0 ? dimension : TimelineIconShape.defaultDimension
+    }
+    set {
+      UserDefaults.standard.set(Double(newValue), forKey: Key.timelineIconDimension)
+    }
+  }
+
+  static var timelineFilter: TimelineFilter {
+    get {
+      TimelineFilter(rawValue: UserDefaults.standard.integer(forKey: Key.timelineFilter)) ?? .all
+    }
+    set {
+      UserDefaults.standard.set(newValue.rawValue, forKey: Key.timelineFilter)
+    }
+  }
+
+  /// A font family name for the article list; nil means the system font.
+  static var timelineFontFamily: String? {
+    get {
+      fontFamily(for: Key.timelineFontFamily)
+    }
+    set {
+      UserDefaults.standard.set(newValue, forKey: Key.timelineFontFamily)
+    }
+  }
+
+  /// 0 means the built-in size.
+  static var timelineTitleFontPointSize: CGFloat {
+    get {
+      CGFloat(UserDefaults.standard.double(forKey: Key.timelineTitleFontPointSize))
+    }
+    set {
+      UserDefaults.standard.set(Double(newValue), forKey: Key.timelineTitleFontPointSize)
+    }
+  }
+
+  /// 0 means the built-in size.
+  static var timelineSummaryFontPointSize: CGFloat {
+    get {
+      CGFloat(UserDefaults.standard.double(forKey: Key.timelineSummaryFontPointSize))
+    }
+    set {
+      UserDefaults.standard.set(Double(newValue), forKey: Key.timelineSummaryFontPointSize)
+    }
+  }
+
+  /// 0 means the theme's own title size.
+  static var articleTitleFontPointSize: CGFloat {
+    get {
+      CGFloat(UserDefaults.standard.double(forKey: Key.articleTitleFontPointSize))
+    }
+    set {
+      UserDefaults.standard.set(Double(newValue), forKey: Key.articleTitleFontPointSize)
+    }
+  }
+
+  /// 0 means the Article Text Size setting decides.
+  static var articleBodyFontPointSize: CGFloat {
+    get {
+      CGFloat(UserDefaults.standard.double(forKey: Key.articleBodyFontPointSize))
+    }
+    set {
+      UserDefaults.standard.set(Double(newValue), forKey: Key.articleBodyFontPointSize)
+    }
+  }
+
+  /// nil means the system sidebar background.
+  static var sidebarBackgroundColor: NSColor? {
+    get {
+      color(for: Key.sidebarBackgroundColor)
+    }
+    set {
+      UserDefaults.standard.set(newValue?.hexString, forKey: Key.sidebarBackgroundColor)
+    }
+  }
+
+  /// nil means the system list background.
+  static var timelineBackgroundColor: NSColor? {
+    get {
+      color(for: Key.timelineBackgroundColor)
+    }
+    set {
+      UserDefaults.standard.set(newValue?.hexString, forKey: Key.timelineBackgroundColor)
+    }
+  }
+
+  /// nil means the theme's own page background.
+  static var articleBackgroundColor: NSColor? {
+    get {
+      color(for: Key.articleBackgroundColor)
+    }
+    set {
+      UserDefaults.standard.set(newValue?.hexString, forKey: Key.articleBackgroundColor)
+    }
+  }
+
+  /// The split view dividers and status bar lines; nil means the system colors.
+  static var borderColor: NSColor? {
+    get {
+      color(for: Key.borderColor)
+    }
+    set {
+      UserDefaults.standard.set(newValue?.hexString, forKey: Key.borderColor)
+    }
+  }
+
+  /// The sidebar unread count capsule; nil means the asset catalog colors.
+  static var sidebarBadgeTextColor: NSColor? {
+    get {
+      color(for: Key.sidebarBadgeTextColor)
+    }
+    set {
+      UserDefaults.standard.set(newValue?.hexString, forKey: Key.sidebarBadgeTextColor)
+    }
+  }
+
+  static var sidebarBadgeBackgroundColor: NSColor? {
+    get {
+      color(for: Key.sidebarBadgeBackgroundColor)
+    }
+    set {
+      UserDefaults.standard.set(newValue?.hexString, forKey: Key.sidebarBadgeBackgroundColor)
+    }
+  }
+
+  private static func color(for key: String) -> NSColor? {
+    UserDefaults.standard.string(forKey: key).flatMap { NSColor(hexString: $0) }
+  }
+
+  static var timelineTitleIsBold: Bool {
+    get {
+      UserDefaults.standard.bool(forKey: Key.timelineTitleIsBold)
+    }
+    set {
+      UserDefaults.standard.set(newValue, forKey: Key.timelineTitleIsBold)
+    }
+  }
+
+  static var timelineSummaryIsBold: Bool {
+    get {
+      UserDefaults.standard.bool(forKey: Key.timelineSummaryIsBold)
+    }
+    set {
+      UserDefaults.standard.set(newValue, forKey: Key.timelineSummaryIsBold)
+    }
+  }
+
+  /// Feed, folder, and smart feed icons in the sidebar drawn without color.
+  static var sidebarIconsAreGrayscale: Bool {
+    get {
+      UserDefaults.standard.bool(forKey: Key.sidebarIconsAreGrayscale)
+    }
+    set {
+      UserDefaults.standard.set(newValue, forKey: Key.sidebarIconsAreGrayscale)
+    }
+  }
+
+  /// Read articles draw their text at reduced opacity in the article list.
+  static var timelineDimsReadArticles: Bool {
+    get {
+      UserDefaults.standard.bool(forKey: Key.timelineDimsReadArticles)
+    }
+    set {
+      UserDefaults.standard.set(newValue, forKey: Key.timelineDimsReadArticles)
+    }
+  }
+
+  static var timelineIconShape: TimelineIconShape {
+    get {
+      TimelineIconShape(rawValue: UserDefaults.standard.integer(forKey: Key.timelineIconShape)) ?? .rounded
+    }
+    set {
+      UserDefaults.standard.set(newValue.rawValue, forKey: Key.timelineIconShape)
+    }
+  }
+
+  /// Resolves a stored family name to a font, falling back to the system font when the family is unset or not installed.
+  static func font(familyName: String?, fontName: String? = nil, size: CGFloat, weight: NSFont.Weight = .regular) -> NSFont {
+    // An exact face wins: it carries the weight and style the user picked.
+    if let fontName, let font = NSFont(name: fontName, size: size) {
+      return font
+    }
+    // NSFontManager weights: 5 is regular, 8 is semibold, 9 is bold.
+    let managerWeight = weight == .bold ? 9 : weight == .semibold ? 8 : 5
+    guard let familyName, !familyName.isEmpty,
+        let font = NSFontManager.shared.font(withFamily: familyName, traits: [], weight: managerWeight, size: size) else {
+      return NSFont.systemFont(ofSize: size, weight: weight)
+    }
+    return font
+  }
+
+  private static func fontFamily(for key: String) -> String? {
+    guard let familyName = UserDefaults.standard.string(forKey: key), !familyName.isEmpty else {
+      return nil
+    }
+    return familyName
+  }
+
 	static var refreshInterval: RefreshInterval {
 		get {
 			let rawValue = UserDefaults.standard.integer(forKey: Key.refreshInterval)
@@ -324,7 +688,15 @@ extension AppDefaults {
 			Key.statusBarCountMode: StatusBarCountMode.lastRefresh.rawValue,
 			"NSScrollViewShouldScrollUnderTitlebar": false,
 			Key.refreshInterval: RefreshInterval.every2Hours.rawValue,
-			Key.showDebugMenu: showDebugMenu
+			Key.showDebugMenu: showDebugMenu,
+      // The popup binding needs a registered value; the getter's fallback alone leaves it blank.
+      Key.articleTextSize: ArticleTextSize.large.rawValue,
+      Key.showAppIconUnreadCountBadge: true,
+      Key.confirmMarkAllAsRead: true,
+      Key.timelineIconDimension: Double(TimelineIconShape.defaultDimension),
+      Key.timelineIconShape: TimelineIconShape.rounded.rawValue,
+      Key.timelineFilter: TimelineFilter.all.rawValue,
+      Key.timelineTitleIsBold: true
 		]
 
 		let defaults = commonRegisteredDefaults.merging(platformDefaults) { _, platformValue in platformValue }
@@ -364,4 +736,32 @@ private extension AppDefaults {
 	static func setFontSize(for key: String, _ fontSize: FontSize) {
 		UserDefaults.standard.set(fontSize.rawValue, forKey: key)
 	}
+}
+
+extension NSColor {
+
+  /// "#RRGGBB" in sRGB, or "#RRGGBBAA" when translucent. CSS reads the same string.
+  var hexString: String? {
+    guard let color = usingColorSpace(.sRGB) else {
+      return nil
+    }
+    let red = Int((color.redComponent * 255).rounded())
+    let green = Int((color.greenComponent * 255).rounded())
+    let blue = Int((color.blueComponent * 255).rounded())
+    let alpha = Int((color.alphaComponent * 255).rounded())
+    if alpha < 255 {
+      return String(format: "#%02X%02X%02X%02X", red, green, blue, alpha)
+    }
+    return String(format: "#%02X%02X%02X", red, green, blue)
+  }
+
+  convenience init?(hexString: String) {
+    let digits = hexString.hasPrefix("#") ? String(hexString.dropFirst()) : hexString
+    guard digits.count == 6 || digits.count == 8, let value = UInt64(digits, radix: 16) else {
+      return nil
+    }
+    let rgb = digits.count == 8 ? value >> 8 : value
+    let alpha = digits.count == 8 ? CGFloat(value & 0xFF) / 255 : 1
+    self.init(srgbRed: CGFloat((rgb >> 16) & 0xFF) / 255, green: CGFloat((rgb >> 8) & 0xFF) / 255, blue: CGFloat(rgb & 0xFF) / 255, alpha: alpha)
+  }
 }

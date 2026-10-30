@@ -7,6 +7,7 @@
 //
 
 import AppKit
+import SwiftUI
 
 private struct PreferencesToolbarItemSpec {
 
@@ -25,6 +26,18 @@ final class PreferencesWindowController: NSWindowController, NSToolbarDelegate {
 								   name: NSLocalizedString("General", comment: "Preferences"),
 								   image: Assets.Images.preferencesToolbarGeneral,
 								   makeViewController: { GeneralPreferencesViewController() }),
+		PreferencesToolbarItemSpec(identifier: NSToolbarItem.Identifier("Appearance"),
+								   name: NSLocalizedString("Appearance", comment: "Preferences"),
+								   image: Assets.Images.preferencesToolbarAppearance,
+								   makeViewController: { SettingsPaneHostingController(rootView: AppearanceTab()) }),
+		PreferencesToolbarItemSpec(identifier: NSToolbarItem.Identifier("Feeds"),
+								   name: NSLocalizedString("Feeds", comment: "Preferences"),
+								   image: Assets.Images.preferencesToolbarFeeds,
+								   makeViewController: { SettingsPaneHostingController(rootView: FeedsTab()) }),
+		PreferencesToolbarItemSpec(identifier: NSToolbarItem.Identifier("Shortcuts"),
+								   name: NSLocalizedString("Shortcuts", comment: "Preferences"),
+								   image: Assets.Images.preferencesToolbarShortcuts,
+								   makeViewController: { SettingsPaneHostingController(rootView: ShortcutsTab()) }),
 		PreferencesToolbarItemSpec(identifier: NSToolbarItem.Identifier("Accounts"),
 								   name: NSLocalizedString("Accounts", comment: "Preferences"),
 								   image: Assets.Images.preferencesToolbarAccounts,
@@ -32,7 +45,7 @@ final class PreferencesWindowController: NSWindowController, NSToolbarDelegate {
 		PreferencesToolbarItemSpec(identifier: NSToolbarItem.Identifier("Advanced"),
 								   name: NSLocalizedString("Advanced", comment: "Preferences"),
 								   image: Assets.Images.preferencesToolbarAdvanced,
-								   makeViewController: { AdvancedPreferencesViewController() })
+								   makeViewController: { SettingsPaneHostingController(rootView: AdvancedTab()) })
 	]
 
 	convenience init() {
@@ -175,5 +188,27 @@ private extension PreferencesWindowController {
 			window.setFrame(updatedWindowFrame, display: true, animate: true)
 			contentView.alphaValue = 1.0
 		}
+	}
+}
+
+/// A SwiftUI pane behind a toolbar item. The window sizes itself from the view's frame, so the pane
+/// gets a fixed size; a form longer than that scrolls.
+private final class SettingsPaneHostingController: NSHostingController<AnyView> {
+
+	// As tall as the screen comfortably allows, so the long Appearance form needs little scrolling.
+	static let paneSize: NSSize = {
+		let screenHeight = NSScreen.main?.visibleFrame.height ?? 800
+		return NSSize(width: 560, height: min(820, screenHeight - 140))
+	}()
+
+	init(rootView: some View) {
+		super.init(rootView: AnyView(rootView.frame(width: Self.paneSize.width, height: Self.paneSize.height)))
+		sizingOptions = []
+		// The hosting view already exists here (loadView never runs), and the window reads this frame.
+		view.frame = NSRect(origin: .zero, size: Self.paneSize)
+	}
+
+	@MainActor required init?(coder: NSCoder) {
+		return nil
 	}
 }
