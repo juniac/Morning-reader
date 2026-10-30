@@ -481,7 +481,11 @@ a.footnote:hover,
 		margin-bottom: 64px;
 		padding-left: 48px;
 		padding-right: 48px;
-		font-family: -apple-system;
+		font-family: [[font-family]];
+		font-weight: [[font-weight]];
+		font-style: [[font-style]];
+		font-size: [[body-font-size]];
+		background-color: [[background-color]];
 	}
 
 	.smallText {
@@ -535,7 +539,7 @@ a.footnote:hover,
 	}
 
 	.articleTitle h1 {
-		font-size: 1.85rem;
+		font-size: [[title-font-size]];
 	}
 
 	.articleBody a:link, .articleBody a:visited {

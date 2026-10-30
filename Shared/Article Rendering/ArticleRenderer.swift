@@ -9,6 +9,8 @@
 import Foundation
 #if os(iOS)
 import UIKit
+#else
+import AppKit
 #endif
 import RSCore
 import Articles
@@ -273,7 +275,8 @@ private extension ArticleRenderer {
 		}
 
 		#if os(macOS)
-		d["text_size_class"] = AppDefaults.articleTextSize.cssClass
+		// A custom body size wins over the size class; the class would otherwise override it on the body container.
+		d["text_size_class"] = AppDefaults.articleBodyFontPointSize > 0 ? "" : AppDefaults.articleTextSize.cssClass
 		#endif
 
 		var components = URLComponents()
@@ -365,7 +368,28 @@ private extension ArticleRenderer {
 	}
 	#else
 	func styleSubstitutions() -> [String: String] {
-		return [String: String]()
+    var d = [String: String]()
+    // The CSS falls back to the system font when the user has not picked a family.
+    if let familyName = AppDefaults.articleFontFamily {
+      d["font-family"] = "\"\(familyName)\", -apple-system"
+    } else {
+      d["font-family"] = "-apple-system"
+    }
+    // The picked face sets the weight and style; the family alone would always render regular.
+    d["font-weight"] = "normal"
+    d["font-style"] = "normal"
+    if let fontName = AppDefaults.articleFontName, let font = NSFont(name: fontName, size: 12) {
+      // NSFontManager weights run 0...15 with 5 regular and 9 bold.
+      let cssWeights = [100, 100, 200, 300, 300, 400, 500, 600, 600, 700, 800, 800, 900, 900, 900, 900]
+      d["font-weight"] = String(cssWeights[max(0, min(15, NSFontManager.shared.weight(of: font)))])
+      d["font-style"] = font.fontDescriptor.symbolicTraits.contains(.italic) ? "italic" : "normal"
+    }
+    let bodySize = AppDefaults.articleBodyFontPointSize
+    let titleSize = AppDefaults.articleTitleFontPointSize
+    d["body-font-size"] = bodySize > 0 ? "\(Int(bodySize))px" : "inherit"
+    d["title-font-size"] = titleSize > 0 ? "\(Int(titleSize))px" : "1.85rem"
+    d["background-color"] = AppDefaults.articleBackgroundColor?.hexString ?? "transparent"
+    return d
 	}
 	#endif
 

@@ -55,6 +55,10 @@ final class DetailWebViewController: NSViewController {
 	}
 
 	private var articleTextSize = AppDefaults.articleTextSize
+  private var articleFontFamily = AppDefaults.articleFontFamily
+  private var articleFontName = AppDefaults.articleFontName
+  private var articleFontSizes = (AppDefaults.articleTitleFontPointSize, AppDefaults.articleBodyFontPointSize)
+  private var articleBackgroundColor = AppDefaults.articleBackgroundColor
 	private var isArticleContentJavascriptEnabled = AppDefaults.isArticleContentJavascriptEnabled
 
 	private var webInspectorEnabled: Bool {
@@ -148,6 +152,19 @@ final class DetailWebViewController: NSViewController {
 			articleTextSize = AppDefaults.articleTextSize
 			reloadHTMLMaintainingScrollPosition()
 		}
+    if articleFontFamily != AppDefaults.articleFontFamily || articleFontName != AppDefaults.articleFontName {
+      articleFontFamily = AppDefaults.articleFontFamily
+      articleFontName = AppDefaults.articleFontName
+      reloadHTMLMaintainingScrollPosition()
+    }
+    if articleBackgroundColor != AppDefaults.articleBackgroundColor {
+      articleBackgroundColor = AppDefaults.articleBackgroundColor
+      reloadHTMLMaintainingScrollPosition()
+    }
+    if articleFontSizes != (AppDefaults.articleTitleFontPointSize, AppDefaults.articleBodyFontPointSize) {
+      articleFontSizes = (AppDefaults.articleTitleFontPointSize, AppDefaults.articleBodyFontPointSize)
+      reloadHTMLMaintainingScrollPosition()
+    }
 		if isArticleContentJavascriptEnabled != AppDefaults.isArticleContentJavascriptEnabled {
 			isArticleContentJavascriptEnabled = AppDefaults.isArticleContentJavascriptEnabled
 			reloadHTMLMaintainingScrollPosition()
